@@ -19,102 +19,106 @@ async function main() {
             1. seachWeb({query}: {query: string}) //Search the latest information and realtime data on the internet.` },
         {
             role: "user",
-            content: `iphone16 launch date`,
-            // what is the current weather in Mumbai?
+            // content: `iphone16 launch date`,
+            content: `what is the current weather in Mumbai?`
         },
     ];
 
-    const response = await openai.chat.completions.create({
-        model: "gemini-2.0-flash",
-        temperature: 0,
-        messages: messages,
-        tools: [
-            {
-                type: "function",
-                function: {
-                    name: "webSearch",
-                    description: "Search the latest information and realtime data on the internet",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            query: {
-                                type: 'string',
-                                description: "The search query to perform on."
+    while(true) {
+        
+        const response = await openai.chat.completions.create({
+            model: "gemini-2.0-flash",
+            temperature: 0,
+            messages: messages,
+            tools: [
+                {
+                    type: "function",
+                    function: {
+                        name: "webSearch",
+                        description: "Search the latest information and realtime data on the internet",
+                        parameters: {
+                            type: "object",
+                            properties: {
+                                query: {
+                                    type: 'string',
+                                    description: "The search query to perform on."
+                                },
                             },
+                            required: ["query"]
                         },
-                        required: ["query"]
-                    },
+                    }
                 }
-            }
-        ],
-        tool_choice: 'auto',
-    });
+            ],
+            tool_choice: 'auto',
+        });
 
-    const firstResponse = response.choices[0].message;
-    messages.push(firstResponse);
-    
-    console.log(JSON.stringify("First API Response (Tool Call):", firstResponse, null, 2));
+        const firstResponse = response.choices[0].message;
+        messages.push(firstResponse);
+        
+        // console.log(JSON.stringify("First API Response (Tool Call):", firstResponse, null, 2));
 
 
-    const toolCalls = response.choices[0].message.tool_calls;
+        const toolCalls = response.choices[0].message.tool_calls;
 
-    if(!toolCalls) {
-        console.log(`Assistant: ${response.choices[0].message.content}`);
-        return;
-    }
-
-    for(const tool of toolCalls) {
-        console.log('tool:', tool);
-        const functionName = tool.function.name;
-        const functionParams = tool.function.arguments;
-
-        if(functionName === 'webSearch') {
-            const toolResult = await webSearch(JSON.parse(functionParams));
-            // console.log('Tool result: ', toolResult);
-            // return toolResult;
-            messages.push({
-                tool_call_id: tool.id,
-                role: 'tool',
-                content: toolResult,
-            })
+        if(!toolCalls) {
+            console.log(`Assistant: ${response.choices[0].message.content}`);
+            break;
         }
+
+        for(const tool of toolCalls) {
+            console.log('tool:', tool);
+            const functionName = tool.function.name;
+            const functionParams = tool.function.arguments;
+
+            if(functionName === 'webSearch') {
+                const toolResult = await webSearch(JSON.parse(functionParams));
+                // console.log('Tool result: ', toolResult);
+                // return toolResult;
+                messages.push({
+                    tool_call_id: tool.id,
+                    role: 'tool',
+                    content: toolResult,
+                })
+            }
+        }
+
     }
 
 
-        const response2 = await openai.chat.completions.create({
-        model: "gemini-2.0-flash",
-        temperature: 0,
-        messages: messages,
-        // tools: [
-        //     {
-        //         type: "function",
-        //         function: {
-        //             name: "webSearch",
-        //             description: "Search the latest information and realtime data on the internet",
-        //             parameters: {
-        //                 type: "object",
-        //                 properties: {
-        //                     query: {
-        //                         type: 'string',
-        //                         description: "The search query to perform on."
-        //                     },
-        //                 },
-        //                 required: ["query"]
-        //             },
-        //         }
-        //     }
-        // ],
-        // tool_choice: 'auto',
-    });
+    //     const response2 = await openai.chat.completions.create({
+    //     model: "gemini-2.0-flash",
+    //     temperature: 0,
+    //     messages: messages,
+    //     // tools: [
+    //     //     {
+    //     //         type: "function",
+    //     //         function: {
+    //     //             name: "webSearch",
+    //     //             description: "Search the latest information and realtime data on the internet",
+    //     //             parameters: {
+    //     //                 type: "object",
+    //     //                 properties: {
+    //     //                     query: {
+    //     //                         type: 'string',
+    //     //                         description: "The search query to perform on."
+    //     //                     },
+    //     //                 },
+    //     //                 required: ["query"]
+    //     //             },
+    //     //         }
+    //     //     }
+    //     // ],
+    //     // tool_choice: 'auto',
+    // });
 
-    // messages.push({
-    //     tool_call_id: tool.id,
-    //     role: 'tool',
-    //     name: functionName,
-    //     content: toolResult,
-    // })
+    // // messages.push({
+    // //     tool_call_id: tool.id,
+    // //     role: 'tool',
+    // //     name: functionName,
+    // //     content: toolResult,
+    // // })
 
-    console.log("-----------------------------------------------------\nFinal Assistant Response:", response2.choices[0].message, null, 2);
+    // console.log("-----------------------------------------------------\nFinal Assistant Response:", response2.choices[0].message, null, 2);
 }
 
 
@@ -131,6 +135,6 @@ async function webSearch({query}) {
 
     console.log(`Performing web search for: "${query}"`);
     const response = await tvly.search(query);
-    console.log("Travily API Response:",response);
+    // console.log("Travily API Response:",response);
     return JSON.stringify(response);
 }
