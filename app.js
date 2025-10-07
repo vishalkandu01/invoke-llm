@@ -1,3 +1,4 @@
+import readLine from "node:readline/promises";
 import OpenAI from "openai";
 import {tavily} from "@tavily/core";
 
@@ -11,78 +12,97 @@ const openai = new OpenAI({
 
 async function main() {
 
+    const rl = readLine.createInterface({input: process.stdin, output: process.stdout});
+
     const messages = [
         { 
             role: "system", 
             content: `You are a smart personal assitant who answers the asked questions.
             You have access to following tools:
-            1. seachWeb({query}: {query: string}) //Search the latest information and realtime data on the internet.` },
-        {
-            role: "user",
-            // content: `iphone16 launch date`,
-            content: `what is the current weather in Mumbai?`
+            1. seachWeb({query}: {query: string}) //Search the latest information and realtime data on the internet.
+            current date and time: ${new Date().toUTCString()}` 
         },
+        // {
+        //     role: "user",
+        //     // content: `iphone16 launch date`,
+        //     content: `what is the current weather in Mumbai?`
+        // },
     ];
 
-    while(true) {
-        
-        const response = await openai.chat.completions.create({
-            model: "gemini-2.0-flash",
-            temperature: 0,
-            messages: messages,
-            tools: [
-                {
-                    type: "function",
-                    function: {
-                        name: "webSearch",
-                        description: "Search the latest information and realtime data on the internet",
-                        parameters: {
-                            type: "object",
-                            properties: {
-                                query: {
-                                    type: 'string',
-                                    description: "The search query to perform on."
-                                },
-                            },
-                            required: ["query"]
-                        },
-                    }
-                }
-            ],
-            tool_choice: 'auto',
-        });
+    while (true) {
+        const question = await rl.question('You: ');
 
-        const firstResponse = response.choices[0].message;
-        messages.push(firstResponse);
-        
-        // console.log(JSON.stringify("First API Response (Tool Call):", firstResponse, null, 2));
-
-
-        const toolCalls = response.choices[0].message.tool_calls;
-
-        if(!toolCalls) {
-            console.log(`Assistant: ${response.choices[0].message.content}`);
+        if (question === 'bye') {
             break;
         }
 
-        for(const tool of toolCalls) {
-            console.log('tool:', tool);
-            const functionName = tool.function.name;
-            const functionParams = tool.function.arguments;
+        messages.push({
+            role: 'user',
+            content: question,
+        })
 
-            if(functionName === 'webSearch') {
-                const toolResult = await webSearch(JSON.parse(functionParams));
-                // console.log('Tool result: ', toolResult);
-                // return toolResult;
-                messages.push({
-                    tool_call_id: tool.id,
-                    role: 'tool',
-                    content: toolResult,
-                })
+        while (true) {
+            
+            const response = await openai.chat.completions.create({
+                model: "gemini-2.0-flash",
+                temperature: 0,
+                messages: messages,
+                tools: [
+                    {
+                        type: "function",
+                        function: {
+                            name: "webSearch",
+                            description: "Search the latest information and realtime data on the internet",
+                            parameters: {
+                                type: "object",
+                                properties: {
+                                    query: {
+                                        type: 'string',
+                                        description: "The search query to perform on."
+                                    },
+                                },
+                                required: ["query"]
+                            },
+                        }
+                    }
+                ],
+                tool_choice: 'auto',
+            });
+
+            const firstResponse = response.choices[0].message;
+            messages.push(firstResponse);
+            
+            // console.log(JSON.stringify("First API Response (Tool Call):", firstResponse, null, 2));
+
+
+            const toolCalls = response.choices[0].message.tool_calls;
+
+            if(!toolCalls) {
+                console.log(`Assistant: ${response.choices[0].message.content}`);
+                break;
             }
-        }
 
+            for(const tool of toolCalls) {
+                console.log('tool:', tool);
+                const functionName = tool.function.name;
+                const functionParams = tool.function.arguments;
+
+                if(functionName === 'webSearch') {
+                    const toolResult = await webSearch(JSON.parse(functionParams));
+                    // console.log('Tool result: ', toolResult);
+                    // return toolResult;
+                    messages.push({
+                        tool_call_id: tool.id,
+                        role: 'tool',
+                        content: toolResult,
+                    })
+                }
+            }
+
+        }
     }
+
+
 
 
     //     const response2 = await openai.chat.completions.create({
